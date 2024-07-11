@@ -138,13 +138,18 @@ def select_problem_for_id(contest_id, index):
             result = res.unique().scalars().all()[0]
             name = result.name
             rat = result.rating
-            solved_count = result.rating
+            solved_count = result.solved_count
             tags = []
             for tag in result.tags:
                 tags.append(tag.tag_name)
             print(result)
+            return (f'Номер задачи: {contest_id}{index}\n'
+                    f'Название: {name}\n'
+                    f'Рейтинг: {rat}\n'
+                    f'Количество решивших задачу: {solved_count}\n'
+                    f'Тэги: {', '.join(tag for tag in tags)}')
         except IndexError:
-            print('Задача с таким номером не найдена')
+            return 'Задача с таким номером не найдена'
 
 
 def select_problems_for_rating_tag(rating, tag):
