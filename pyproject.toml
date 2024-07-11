@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "codeforcesparser"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+sqlalchemy = "^2.0.31"
+requests = "^2.32.3"
+psycopg2-binary = "^2.9.9"
+python-dotenv = "^1.0.1"
+schedule = "^1.2.2"
+telebot = "^0.0.5"
+aiogram = "^3.10.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
