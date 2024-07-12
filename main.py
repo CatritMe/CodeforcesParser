@@ -6,9 +6,11 @@ import threading
 import schedule
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
 
 from db.database import update_table
+from scheduler import on_startup
 from services import run_scheduler, get_problems, get_statistics
 from tg_bot.state import SearchProblem
 from tg_bot.utils import cmd_start, get_problem_number, get_method, get_tag, get_rating
@@ -30,14 +32,11 @@ dp.message.register(get_rating, SearchProblem.put_rating)
 
 
 async def main():
-    await dp.start_polling(bot)
     problems_list = get_problems()
     statistics_list = get_statistics()
-    schedule.every(1).hours.do(update_table, problems_list, statistics_list)
-    scheduler_thread = threading.Thread(target=run_scheduler)
-    scheduler_thread.start()
-    while True:
-        await asyncio.sleep(1)
+    task_one = asyncio.create_task(dp.start_polling(bot))
+    task_two = asyncio.create_task(update_table(problems_list, statistics_list))
+    await asyncio.gather(task_one, task_two)
 
 if __name__ == "__main__":
     asyncio.run(main())

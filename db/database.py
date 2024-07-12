@@ -1,20 +1,17 @@
 import asyncio
 import datetime
-import logging
 import os
 import random
-import time
 
-import schedule
 from dotenv import load_dotenv
 
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from sqlalchemy import create_engine, URL, delete, select
+from sqlalchemy import create_engine, URL, select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy.orm import Session, sessionmaker, selectinload, aliased
+from sqlalchemy.orm import Session, sessionmaker, selectinload
 from db.meta import metadata, Tag, Problem
-from services import get_problems, get_statistics, get_tags, get_contest_id_index
+from services import get_problems, get_statistics, get_tags
 
 load_dotenv()
 
@@ -31,15 +28,16 @@ db_url = URL.create('postgresql+psycopg2',
                     database=database_name
                     )
 async_db_url = URL.create('postgresql+asyncpg',
-                    username=username,
-                    password=password,
-                    host=host,
-                    port=port,
-                    database=database_name
-                    )
+                          username=username,
+                          password=password,
+                          host=host,
+                          port=port,
+                          database=database_name
+                          )
 
 engine = create_engine(db_url, echo=True)
 async_engine = create_async_engine(async_db_url, echo=True)
+
 session = sessionmaker(engine)
 async_session = async_sessionmaker(async_engine)
 
@@ -103,51 +101,53 @@ def insert_data(problems, statistics, tags):
         s.commit()
 
 
-async def update_table(problems, statistics):
+async def update_table(problems, stat):
     """
-    Функция для шедулера
+    Функция обновления БД раз в час
     Обновляет БД, если на сайте codeforces есть изменения
     Не возвращает ничего, но в консоль пишет, если есть изменения и время парсинга
     """
-    async with async_session() as s:
-        engine.echo = False
-        for problem in problems[0:100]:
-            query = (
-                select(Problem)
-                .options(selectinload(Problem.tags))
-                .filter_by(contest_id=problem['contestId'], index=problem['index'])
-            )
-            res = await s.execute(query)
-            result = res.unique().scalars().all()
-
-            for i in range(len(statistics)):
-                if statistics[i]['contestId'] == problem['contestId'] and statistics[i]['index'] == problem['index']:
-                    solved_count = statistics[i]['solvedCount']
-            if len(result) == 0:
-                try:
-                    rating = problem['rating']
-                except KeyError:
-                    rating = 0
-
-                prob = Problem(
-                    contest_id=problem['contestId'],
-                    index=problem['index'],
-                    name=problem['name'],
-                    rating=rating,
-                    solved_count=solved_count
+    while True:
+        async with async_session() as s:
+            async_engine.echo = False
+            for problem in problems[0:100]:
+                query = (
+                    select(Problem)
+                    .options(selectinload(Problem.tags))
+                    .filter_by(contest_id=problem['contestId'], index=problem['index'])
                 )
-                if problem['tags']:
-                    for tag in problem['tags']:
-                        tg = s.get(Tag, tag)
-                        if tg not in prob.tags:
-                            prob.tags.append(tg)
-                s.add(prob)
-                print('добавлена новая')
-            elif int(solved_count) > int(result[0].solved_count):
-                result[0].solved_count = solved_count
-        await s.commit()
-        engine.echo = True
-        print(f'парсинг в {datetime.datetime.now()}')
+                res = await s.execute(query)
+                result = res.unique().scalars().all()
+
+                for i in range(len(stat)):
+                    if stat[i]['contestId'] == problem['contestId'] and stat[i]['index'] == problem['index']:
+                        solved_count = stat[i]['solvedCount']
+                if len(result) == 0:
+                    try:
+                        rating = problem['rating']
+                    except KeyError:
+                        rating = 0
+
+                    prob = Problem(
+                        contest_id=problem['contestId'],
+                        index=problem['index'],
+                        name=problem['name'],
+                        rating=rating,
+                        solved_count=solved_count
+                    )
+                    if problem['tags']:
+                        for tag in problem['tags']:
+                            tg = s.get(Tag, tag)
+                            if tg not in prob.tags:
+                                prob.tags.append(tg)
+                    s.add(prob)
+                    print('добавлена новая')
+                elif int(solved_count) > int(result[0].solved_count):
+                    result[0].solved_count = solved_count
+            await s.commit()
+            async_engine.echo = True
+            print(f'парсинг в {datetime.datetime.now()}')
+            await asyncio.sleep(3600)  # 1 час
 
 
 async def select_problem_for_id(contest_id, index):
@@ -220,10 +220,6 @@ def main():
     create_db(database_name)
     create_table()
     insert_data(get_problems(), get_statistics(), get_tags())
-    # schedule.every(1).hours.do(update_table, problems_list, statistics_list)
-    # while True:
-    #     schedule.run_pending()
-    #     time.sleep(1)
 
 
 if __name__ == "__main__":

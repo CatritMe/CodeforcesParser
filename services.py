@@ -1,7 +1,4 @@
-import time
-
 import requests
-import schedule
 
 contest = requests.get('https://codeforces.com/api/problemset.problems?}')
 
@@ -65,9 +62,3 @@ def get_message_format(result):
                    f'-----------------------------------\n')
         problems.append(problem)
     return problems
-
-
-def run_scheduler():
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
