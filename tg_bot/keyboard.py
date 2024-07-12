@@ -1,16 +1,18 @@
-from aiogram import Bot, Dispatcher, types
+from aiogram import types
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 tags = ['dfs and similar', 'divide and conquer', 'graphs', 'combinatorics', 'dp',
-'math', 'brute force', 'data structures',
-'greedy', 'sortings', 'two pointers', 'strings', 'implementation',
-'interactive', '797', 'dsu', 'games', 'hashing',
-'number theory', 'binary search', 'geometry', 'constructive algorithms',
-'string suffix structures', 'bitmasks',
-'probabilities', 'meet-in-the-middle', 'matrices', 'ternary search', 'fft',
-'shortest paths', '2-sat', 'flows',
-'*special', 'graph matchings', 'schedules', 'expression parsing', 'chinese remainder theorem']
+        'math', 'brute force', 'data structures',
+        'greedy', 'sortings', 'two pointers', 'strings', 'implementation',
+        'interactive', '797', 'dsu', 'games', 'hashing',
+        'number theory', 'binary search', 'geometry', 'constructive algorithms',
+        'string suffix structures', 'bitmasks',
+        'probabilities', 'meet-in-the-middle', 'matrices', 'ternary search', 'fft',
+        'shortest paths', '2-sat', 'flows',
+        '*special', 'graph matchings', 'schedules', 'expression parsing', 'chinese remainder theorem']
 
+
+# Клавиатура для выбора способа поиска
 search_method = types.ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -22,8 +24,9 @@ search_method = types.ReplyKeyboardMarkup(
         input_field_placeholder="Выберите способ поиска"
     )
 
+
+# Клавиатура для выбора тэга
 tags_builder = ReplyKeyboardBuilder()
 for tag in tags:
     tags_builder.add(types.KeyboardButton(text=str(tag)))
 tags_builder.adjust(6)
-

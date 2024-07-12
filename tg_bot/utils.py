@@ -1,21 +1,18 @@
-import asyncio
 import logging
 import os
 
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters.command import Command
-from aiogram import F
 from aiogram.fsm.context import FSMContext
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from dotenv import load_dotenv
 
-from db.database import select_problem_for_id
+from db.database import select_problem_for_id, select_problems_for_rating_tag
 from tg_bot.keyboard import search_method, tags_builder
 from tg_bot.state import SearchProblem
-from utils import get_contest_id_index
+from services import get_contest_id_index, get_message_format
 
 min_rating = 0
 max_rating = 3500
+step = 100
 
 load_dotenv()
 
@@ -36,8 +33,13 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
 
 async def get_method(message: types.Message, state: FSMContext):
+    """
+    Выбирает метод поиска задачи:
+    - по номеру задачи;
+    - по тэгу + рейтингу
+    """
     if message.text.lower() == 'поиск по номеру':
-        await message.reply("Отлично, теперь введи номер задачи (например 1925А, 200B (буква английская))",
+        await message.reply("Отлично, теперь введи номер задачи (например 1925A, 200B (буква английская))",
                             reply_markup=types.ReplyKeyboardRemove())
         await state.set_state(SearchProblem.put_number)
     elif message.text.lower() == 'поиск по теме и рейтингу':
@@ -51,33 +53,80 @@ async def get_method(message: types.Message, state: FSMContext):
 
 
 async def get_problem_number(message: types.Message, state: FSMContext):
-    await state.update_data(num=message.text)
-    regdata = await state.get_data()
-    num = regdata.get('num')
-    contest_id, index = get_contest_id_index(num)
-    result = select_problem_for_id(contest_id, index)
-    await bot.send_message(message.from_user.id, f'{result}')
+    """
+    Запускается, если выбран метод поиска по номеру.
+    Возвращает найденную задачу или сообщение об отсутствии
+    """
+    if message.text[0].isdigit():
+        await state.update_data(num=message.text)
+        regdata = await state.get_data()
+        num = regdata.get('num')
+        contest_id, index = get_contest_id_index(num)
+        result = select_problem_for_id(contest_id, index)
+        if len(result) == 1:
+            problem = get_message_format(result)
+            await bot.send_message(message.from_user.id, f'Нашел такую задачу:\n\n{problem[0]}',
+                                   reply_markup=search_method)
+        else:
+            await bot.send_message(message.from_user.id, f'Такой задачи нет.\n'
+                                                         f'Проверь номер, буква должна быть английская',
+                                   reply_markup=search_method)
+    elif message.text == 'Поиск по номеру':
+        await state.set_state(SearchProblem.put_number)
+        await message.reply(f"Введи номер задачи")
+    elif message.text == 'Поиск по теме и рейтингу':
+        await state.set_state(SearchProblem.get_tag)
+        await message.reply("Выберите тему:", reply_markup=tags_builder.as_markup(resize_keyboard=True),)
+    else:
+        await bot.send_message(message.from_user.id, f'Неправильно введен номер.'
+                                                     f'Первая должна быть цифра')
 
 
 async def get_tag(message: types.Message, state: FSMContext):
+    """
+    Запускается, если выбран метод поиска по тэгу + рейтингу.
+    Сохраняет введенный тэг
+    """
     await state.update_data(tag=message.text)
-    regdata = await state.get_data()
-    tag = regdata.get('tag')
-    await message.reply(f"Отлично, теперь введи рейтинг (от {min_rating} до {max_rating} кратно 100)",
+    await message.reply(f"Отлично, теперь введи рейтинг (от {min_rating} до {max_rating} кратно {step})",
                         reply_markup=types.ReplyKeyboardRemove())
     await state.set_state(SearchProblem.put_rating)
 
 
 async def get_rating(message: types.Message, state: FSMContext):
+    """
+    Запускается, если выбран метод поиска по тэгу + рейтингу.
+    Сохраняет введенный рейтинг
+    Возвращает найденные задачи из БД
+    """
     if message.text.isdigit():
-        num = int(message.text)
-        if min_rating <= num <= max_rating and num % 100 == 0:
-            await state.update_data(num=message.text)
-            rating = num
-            print(rating)
+        rating = int(message.text)
+        regdata = await state.get_data()
+        tag = regdata.get('tag')
+        if min_rating <= rating <= max_rating and rating % step == 0:
+            await state.update_data(rating=message.text)
+            result = select_problems_for_rating_tag(rating, tag)
+            if len(result) > 0:
+                problems = get_message_format(result)
+                await bot.send_message(message.from_user.id, f'Нашел {len(problems)} задач:\n\n'
+                                                             f'{''.join(p for p in problems)}',
+                                       reply_markup=search_method)
+            else:
+                await bot.send_message(message.from_user.id, f'Не нашел задачи с таким тэгом + рейтингом\n'
+                                                             f'Попробуй изменить рейтинг или выбери другой способ поиска',
+                                       reply_markup=search_method)
         else:
             await message.reply(f"Рейтинг введен некорректно\n"
                                 f"Укажи рейтинг правильно: от {min_rating} до {max_rating} кратно 100")
+    elif message.text == 'Поиск по номеру':
+        await state.set_state(SearchProblem.put_number)
+        await message.reply(f"Введи номер задачи")
+    elif message.text == 'Поиск по теме и рейтингу':
+        await state.set_state(SearchProblem.get_tag)
+        await message.reply(
+            "Выберите тему:",
+            reply_markup=tags_builder.as_markup(resize_keyboard=True),
+        )
     else:
         await message.reply(f"Рейтинг введен некорректно\n"
                             f"Нужно ввести число")

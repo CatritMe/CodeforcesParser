@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+import random
 import time
 
 import schedule
@@ -9,9 +10,10 @@ from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from sqlalchemy import create_engine, URL, delete, select
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import Session, sessionmaker, selectinload, aliased
 from db.meta import metadata, Tag, Problem
-from utils import get_problems, get_statistics, get_tags, get_contest_id_index
+from services import get_problems, get_statistics, get_tags, get_contest_id_index
 
 load_dotenv()
 
@@ -29,11 +31,14 @@ db_url = URL.create('postgresql+psycopg2',
                     )
 
 engine = create_engine(db_url, echo=True)
+async_engine = create_async_engine(db_url, echo=True)
 session = sessionmaker(engine)
 
 
 def create_db(db_name):
-    """Создание БД"""
+    """
+    Создание БД
+    """
     connection = psycopg2.connect(user=username, password=password)
     connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
     cursor = connection.cursor()
@@ -44,14 +49,19 @@ def create_db(db_name):
 
 
 def create_table() -> Session:
-    """Создание таблиц"""
+    """
+    Создание таблиц
+    """
     metadata.drop_all(bind=engine)
     metadata.create_all(bind=engine)
     return Session(bind=engine)
 
 
 def insert_data(problems, statistics, tags):
-    """Вставка спарсенных данных в БД"""
+    """
+    Вставка спарсенных данных в БД
+    Ничего не возвращает
+    """
     with session() as s:
         for tag in tags:
             tg = Tag(tag_name=tag)
@@ -84,7 +94,12 @@ def insert_data(problems, statistics, tags):
         s.commit()
 
 
-def update_table(problems, statistics):
+async def update_table(problems, statistics):
+    """
+    Функция для шедулера
+    Обновляет БД, если на сайте codeforces есть изменения
+    Не возвращает ничего, но в консоль пишет, если есть изменения и время парсинга
+    """
     with session() as s:
         engine.echo = False
         for problem in problems[0:100]:
@@ -127,6 +142,9 @@ def update_table(problems, statistics):
 
 
 def select_problem_for_id(contest_id, index):
+    """
+    Возвращает задачу из БД, найденную по указанным данным или пустой список
+    """
     with session() as s:
         query = (
             select(Problem)
@@ -134,26 +152,24 @@ def select_problem_for_id(contest_id, index):
             .filter_by(contest_id=contest_id, index=index)
         )
         res = s.execute(query)
-        try:
-            result = res.unique().scalars().all()[0]
-            name = result.name
-            rat = result.rating
-            solved_count = result.solved_count
-            tags = []
-            for tag in result.tags:
-                tags.append(tag.tag_name)
-            print(result)
-            return (f'Номер задачи: {contest_id}{index}\n'
-                    f'Название: {name}\n'
-                    f'Рейтинг: {rat}\n'
-                    f'Количество решивших задачу: {solved_count}\n'
-                    f'Тэги: {', '.join(tag for tag in tags)}')
-        except IndexError:
-            return 'Задача с таким номером не найдена'
+        result = res.unique().scalars().all()
+        return result
 
 
 def select_problems_for_rating_tag(rating, tag):
+    """
+    Возвращает 10 задач из списка по принципу:
+    1. по указанной тематике меньше 10 задач в базе (возвращает все найденные)
+    2. возвращает 10 рандомных задач с одним указанным тэгом
+    3. возвращает 10 рандомных задач с двумя тэгами, включая указанный
+    4. возвращает 10 рандомных задач с более чем тремя тэгами, включая указанный
+    5. если в каждой категории найдено меньше 10 задач, то возвращает самый длинный список задач
+    """
     with session() as s:
+        result_1_tag = []
+        result_2_tags = []
+        result_3_tags = []
+
         query = (
             select(Problem)
             .join(Problem.tags)
@@ -161,29 +177,39 @@ def select_problems_for_rating_tag(rating, tag):
         )
         res = s.execute(query)
         result = res.unique().scalars().all()
-        final_result = []
-        for r in result:
-            if r.tags[0].tag_name == tag and len(r.tags) == 1:
-                final_result.append(r)
-        if len(final_result) < 10:
+
+        if len(result) < 10:
+            return result
+        else:
             for r in result:
-                if r.tags[0].tag_name == tag and r not in final_result:
-                    final_result.append(r)
-        if len(final_result) < 10:
-            for r in result:
-                if len(r.tags) > 1:
-                    if r.tags[1].tag_name == tag and len(final_result) < 10:
-                        final_result.append(r)
-        # for fr in final_result:
-        #     tags = []
-        #     for tag in fr.tags:
-        #         tags.append(tag.tag_name)
-        #     print(fr.name, tags)
-        for fr in result:
-            tags = []
-            for tag in fr.tags:
-                tags.append(tag.tag_name)
-            print(fr.name, tags)
+                if len(r.tags) == 1:
+                    result_1_tag.append(r)
+                elif len(r.tags) == 2:
+                    result_2_tags.append(r)
+                elif len(r.tags) > 3:
+                    result_3_tags.append(r)
+            if len(result_1_tag) > 10:
+                random.shuffle(result_1_tag)
+                print(f'рез1 {result_1_tag[0:10]}')
+                return result_1_tag[0:10]
+            elif len(result_2_tags) > 10:
+                random.shuffle(result_2_tags[0:10])
+                print(f'рез2 {result_2_tags}')
+                return result_2_tags[0:10]
+            elif len(result_3_tags) > 10:
+                random.shuffle(result_3_tags)
+                print(f'рез3 {result_3_tags[0:10]}')
+                return result_3_tags[0:10]
+            else:
+                if len(result_1_tag) > len(result_2_tags) and len(result_1_tag) > len(result_3_tags):
+                    print(f'рез1 min {result_1_tag}')
+                    return result_1_tag
+                elif len(result_2_tags) > len(result_1_tag) and len(result_2_tags) > len(result_3_tags):
+                    print(f'рез2 min {result_2_tags}')
+                    return result_2_tags
+                elif len(result_3_tags) > len(result_1_tag) and len(result_3_tags) > len(result_2_tags):
+                    print(f'рез3 min {result_3_tags}')
+                    return result_3_tags
 
 
 def main():
@@ -200,7 +226,7 @@ def main():
     # update_table(problems_list, statistics_list)
     # contest_id, index = get_contest_id_index('1976B')
     # select_problem_for_id(25455, 'S')
-    select_problems_for_rating_tag(3500, 'ternary search')
+    select_problems_for_rating_tag(3000, 'math')
 
 
 if __name__ == "__main__":

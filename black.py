@@ -1,7 +1,7 @@
 
 import requests
 
-from utils import get_tags
+from services import get_tags
 
 contest = requests.get('https://codeforces.com/api/problemset.problems?}')
 # список задач из архива
