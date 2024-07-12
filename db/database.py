@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import logging
 import os
@@ -10,7 +11,7 @@ from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from sqlalchemy import create_engine, URL, delete, select
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import Session, sessionmaker, selectinload, aliased
 from db.meta import metadata, Tag, Problem
 from services import get_problems, get_statistics, get_tags, get_contest_id_index
@@ -29,10 +30,18 @@ db_url = URL.create('postgresql+psycopg2',
                     port=port,
                     database=database_name
                     )
+async_db_url = URL.create('postgresql+asyncpg',
+                    username=username,
+                    password=password,
+                    host=host,
+                    port=port,
+                    database=database_name
+                    )
 
 engine = create_engine(db_url, echo=True)
-async_engine = create_async_engine(db_url, echo=True)
+async_engine = create_async_engine(async_db_url, echo=True)
 session = sessionmaker(engine)
+async_session = async_sessionmaker(async_engine)
 
 
 def create_db(db_name):
@@ -100,7 +109,7 @@ async def update_table(problems, statistics):
     Обновляет БД, если на сайте codeforces есть изменения
     Не возвращает ничего, но в консоль пишет, если есть изменения и время парсинга
     """
-    with session() as s:
+    async with async_session() as s:
         engine.echo = False
         for problem in problems[0:100]:
             query = (
@@ -108,7 +117,7 @@ async def update_table(problems, statistics):
                 .options(selectinload(Problem.tags))
                 .filter_by(contest_id=problem['contestId'], index=problem['index'])
             )
-            res = s.execute(query)
+            res = await s.execute(query)
             result = res.unique().scalars().all()
 
             for i in range(len(statistics)):
@@ -136,27 +145,27 @@ async def update_table(problems, statistics):
                 print('добавлена новая')
             elif int(solved_count) > int(result[0].solved_count):
                 result[0].solved_count = solved_count
-        s.commit()
+        await s.commit()
         engine.echo = True
         print(f'парсинг в {datetime.datetime.now()}')
 
 
-def select_problem_for_id(contest_id, index):
+async def select_problem_for_id(contest_id, index):
     """
     Возвращает задачу из БД, найденную по указанным данным или пустой список
     """
-    with session() as s:
+    async with async_session() as s:
         query = (
             select(Problem)
             .options(selectinload(Problem.tags))
             .filter_by(contest_id=contest_id, index=index)
         )
-        res = s.execute(query)
+        res = await s.execute(query)
         result = res.unique().scalars().all()
         return result
 
 
-def select_problems_for_rating_tag(rating, tag):
+async def select_problems_for_rating_tag(rating, tag):
     """
     Возвращает 10 задач из списка по принципу:
     1. по указанной тематике меньше 10 задач в базе (возвращает все найденные)
@@ -165,7 +174,7 @@ def select_problems_for_rating_tag(rating, tag):
     4. возвращает 10 рандомных задач с более чем тремя тэгами, включая указанный
     5. если в каждой категории найдено меньше 10 задач, то возвращает самый длинный список задач
     """
-    with session() as s:
+    async with async_session() as s:
         result_1_tag = []
         result_2_tags = []
         result_3_tags = []
@@ -173,9 +182,10 @@ def select_problems_for_rating_tag(rating, tag):
         query = (
             select(Problem)
             .join(Problem.tags)
+            .options(selectinload(Problem.tags))
             .where(Tag.tag_name == tag).where(Problem.rating == rating)
         )
-        res = s.execute(query)
+        res = await s.execute(query)
         result = res.unique().scalars().all()
 
         if len(result) < 10:
@@ -190,43 +200,30 @@ def select_problems_for_rating_tag(rating, tag):
                     result_3_tags.append(r)
             if len(result_1_tag) > 10:
                 random.shuffle(result_1_tag)
-                print(f'рез1 {result_1_tag[0:10]}')
                 return result_1_tag[0:10]
             elif len(result_2_tags) > 10:
                 random.shuffle(result_2_tags[0:10])
-                print(f'рез2 {result_2_tags}')
                 return result_2_tags[0:10]
             elif len(result_3_tags) > 10:
                 random.shuffle(result_3_tags)
-                print(f'рез3 {result_3_tags[0:10]}')
                 return result_3_tags[0:10]
             else:
                 if len(result_1_tag) > len(result_2_tags) and len(result_1_tag) > len(result_3_tags):
-                    print(f'рез1 min {result_1_tag}')
                     return result_1_tag
                 elif len(result_2_tags) > len(result_1_tag) and len(result_2_tags) > len(result_3_tags):
-                    print(f'рез2 min {result_2_tags}')
                     return result_2_tags
                 elif len(result_3_tags) > len(result_1_tag) and len(result_3_tags) > len(result_2_tags):
-                    print(f'рез3 min {result_3_tags}')
                     return result_3_tags
 
 
 def main():
-    # create_db(database_name)
-    # create_table()
-    problems_list = get_problems()
-    statistics_list = get_statistics()
-    tags = get_tags()
+    create_db(database_name)
+    create_table()
+    insert_data(get_problems(), get_statistics(), get_tags())
     # schedule.every(1).hours.do(update_table, problems_list, statistics_list)
     # while True:
     #     schedule.run_pending()
     #     time.sleep(1)
-    # insert_data(problems_list, statistics_list, tags)
-    # update_table(problems_list, statistics_list)
-    # contest_id, index = get_contest_id_index('1976B')
-    # select_problem_for_id(25455, 'S')
-    select_problems_for_rating_tag(3000, 'math')
 
 
 if __name__ == "__main__":

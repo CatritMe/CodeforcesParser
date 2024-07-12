@@ -10,7 +10,7 @@ from tg_bot.keyboard import search_method, tags_builder
 from tg_bot.state import SearchProblem
 from services import get_contest_id_index, get_message_format
 
-min_rating = 0
+min_rating = 800
 max_rating = 3500
 step = 100
 
@@ -62,7 +62,7 @@ async def get_problem_number(message: types.Message, state: FSMContext):
         regdata = await state.get_data()
         num = regdata.get('num')
         contest_id, index = get_contest_id_index(num)
-        result = select_problem_for_id(contest_id, index)
+        result = await select_problem_for_id(contest_id, index)
         if len(result) == 1:
             problem = get_message_format(result)
             await bot.send_message(message.from_user.id, f'Нашел такую задачу:\n\n{problem[0]}',
@@ -105,7 +105,7 @@ async def get_rating(message: types.Message, state: FSMContext):
         tag = regdata.get('tag')
         if min_rating <= rating <= max_rating and rating % step == 0:
             await state.update_data(rating=message.text)
-            result = select_problems_for_rating_tag(rating, tag)
+            result = await select_problems_for_rating_tag(rating, tag)
             if len(result) > 0:
                 problems = get_message_format(result)
                 await bot.send_message(message.from_user.id, f'Нашел {len(problems)} задач:\n\n'
