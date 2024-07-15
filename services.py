@@ -1,6 +1,7 @@
 import requests
 
 contest = requests.get('https://codeforces.com/api/problemset.problems?}')
+print(contest)
 
 
 def get_problems():
@@ -56,7 +57,7 @@ def get_message_format(result):
     for r in result:
         problem = (f'Номер задачи: {r.contest_id}{r.index}\n'
                    f'Название: {r.name}\n'
-                   f'Рейтинг: {r.rating}\n'
+                   f'Рейтинг (сложность): {r.rating}\n'
                    f'Количество решивших задачу: {r.solved_count}\n'
                    f'Тэги: {', '.join(tag.tag_name for tag in r.tags)}\n'
                    f'-----------------------------------\n')

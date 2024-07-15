@@ -65,12 +65,10 @@ async def get_problem_number(message: types.Message, state: FSMContext):
         result = await select_problem_for_id(contest_id, index)
         if len(result) == 1:
             problem = get_message_format(result)
-            await bot.send_message(message.from_user.id, f'Нашел такую задачу:\n\n{problem[0]}',
-                                   reply_markup=search_method)
+            await message.reply(f'Нашел такую задачу:\n\n{problem[0]}', reply_markup=search_method)
         else:
-            await bot.send_message(message.from_user.id, f'Такой задачи нет.\n'
-                                                         f'Проверь номер, буква должна быть английская',
-                                   reply_markup=search_method)
+            await message.reply(f'Такой задачи нет.\nПроверь номер, буква должна быть английская',
+                                reply_markup=search_method)
     elif message.text == 'Поиск по номеру':
         await state.set_state(SearchProblem.put_number)
         await message.reply(f"Введи номер задачи")
@@ -78,8 +76,7 @@ async def get_problem_number(message: types.Message, state: FSMContext):
         await state.set_state(SearchProblem.get_tag)
         await message.reply("Выберите тему:", reply_markup=tags_builder.as_markup(resize_keyboard=True),)
     else:
-        await bot.send_message(message.from_user.id, f'Неправильно введен номер.'
-                                                     f'Первая должна быть цифра')
+        await message.reply(f'Неправильно введен номер. Первая должна быть цифра')
 
 
 async def get_tag(message: types.Message, state: FSMContext):
@@ -108,13 +105,12 @@ async def get_rating(message: types.Message, state: FSMContext):
             result = await select_problems_for_rating_tag(rating, tag)
             if len(result) > 0:
                 problems = get_message_format(result)
-                await bot.send_message(message.from_user.id, f'Нашел {len(problems)} задач:\n\n'
-                                                             f'{''.join(p for p in problems)}',
-                                       reply_markup=search_method)
+                await message.reply(f'Нашел {len(problems)} задач:\n\n{''.join(p for p in problems)}',
+                                    reply_markup=search_method)
             else:
-                await bot.send_message(message.from_user.id, f'Не нашел задачи с таким тэгом + рейтингом\n'
-                                                             f'Попробуй изменить рейтинг или выбери другой способ поиска',
-                                       reply_markup=search_method)
+                await message.reply(f'Не нашел задачи с таким тэгом + рейтингом\n'
+                                    f'Попробуй изменить рейтинг или выбери другой способ поиска',
+                                    reply_markup=search_method)
         else:
             await message.reply(f"Рейтинг введен некорректно\n"
                                 f"Укажи рейтинг правильно: от {min_rating} до {max_rating} кратно 100")
@@ -123,10 +119,6 @@ async def get_rating(message: types.Message, state: FSMContext):
         await message.reply(f"Введи номер задачи")
     elif message.text == 'Поиск по теме и рейтингу':
         await state.set_state(SearchProblem.get_tag)
-        await message.reply(
-            "Выберите тему:",
-            reply_markup=tags_builder.as_markup(resize_keyboard=True),
-        )
+        await message.reply("Выберите тему:", reply_markup=tags_builder.as_markup(resize_keyboard=True),)
     else:
-        await message.reply(f"Рейтинг введен некорректно\n"
-                            f"Нужно ввести число")
+        await message.reply(f"Рейтинг введен некорректно\nНужно ввести число")

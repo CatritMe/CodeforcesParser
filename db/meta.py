@@ -1,6 +1,5 @@
-from sqlalchemy import MetaData, Table, Column, Integer, ForeignKey, CHAR, create_engine, URL, delete, \
-    ForeignKeyConstraint, PrimaryKeyConstraint
-from sqlalchemy.orm import declarative_base, relationship, backref, Session, Mapped, mapped_column
+from sqlalchemy import MetaData, ForeignKey, ForeignKeyConstraint, PrimaryKeyConstraint
+from sqlalchemy.orm import declarative_base, relationship, Mapped, mapped_column
 
 metadata = MetaData()
 Base = declarative_base(metadata=metadata)
@@ -20,10 +19,9 @@ class Problem(Base):
     __tablename__ = "problems"
     contest_id: Mapped[int]
     index: Mapped[str]
-    name: Mapped[str]
+    name: Mapped[str] = mapped_column(nullable=False)
     rating: Mapped[int]
     solved_count: Mapped[int] = mapped_column(default=None)
-    # group: Mapped[int] = mapped_column(default=None)
     tags: Mapped[list['Tag']] = relationship(
         back_populates='problems',
         secondary='problems_tags'

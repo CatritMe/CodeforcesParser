@@ -1,17 +1,13 @@
 import asyncio
 import logging
 import os
-import threading
 
-import schedule
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
 
 from db.database import update_table
-from scheduler import on_startup
-from services import run_scheduler, get_problems, get_statistics
+from services import get_problems, get_statistics
 from tg_bot.state import SearchProblem
 from tg_bot.utils import cmd_start, get_problem_number, get_method, get_tag, get_rating
 

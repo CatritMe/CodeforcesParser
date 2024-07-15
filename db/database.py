@@ -104,13 +104,13 @@ def insert_data(problems, statistics, tags):
 async def update_table(problems, stat):
     """
     Функция обновления БД раз в час
-    Обновляет БД, если на сайте codeforces есть изменения
+    (добавляет новые задачи, если появляются и обновляет количество решений по каждой задаче)
     Не возвращает ничего, но в консоль пишет, если есть изменения и время парсинга
     """
     while True:
         async with async_session() as s:
             async_engine.echo = False
-            for problem in problems[0:100]:
+            for problem in problems:
                 query = (
                     select(Problem)
                     .options(selectinload(Problem.tags))
@@ -168,11 +168,10 @@ async def select_problem_for_id(contest_id, index):
 async def select_problems_for_rating_tag(rating, tag):
     """
     Возвращает 10 задач из списка по принципу:
-    1. по указанной тематике меньше 10 задач в базе (возвращает все найденные)
-    2. возвращает 10 рандомных задач с одним указанным тэгом
-    3. возвращает 10 рандомных задач с двумя тэгами, включая указанный
-    4. возвращает 10 рандомных задач с более чем тремя тэгами, включая указанный
-    5. если в каждой категории найдено меньше 10 задач, то возвращает самый длинный список задач
+    1. возвращает 10 рандомных задач с одним указанным тэгом
+    2. возвращает 10 рандомных задач с двумя тэгами, включая указанный
+    3. возвращает 10 рандомных задач с более чем тремя тэгами, включая указанный
+    4. если в каждой категории найдено меньше 10 задач, то возвращает самый длинный список задач
     """
     async with async_session() as s:
         result_1_tag = []
@@ -187,33 +186,29 @@ async def select_problems_for_rating_tag(rating, tag):
         )
         res = await s.execute(query)
         result = res.unique().scalars().all()
-
-        if len(result) < 10:
-            return result
+        for r in result:
+            if len(r.tags) == 1:
+                result_1_tag.append(r)
+            elif len(r.tags) == 2:
+                result_2_tags.append(r)
+            elif len(r.tags) > 3:
+                result_3_tags.append(r)
+        if len(result_1_tag) > 10:
+            random.shuffle(result_1_tag)
+            return result_1_tag[0:10]
+        elif len(result_2_tags) > 10:
+            random.shuffle(result_2_tags[0:10])
+            return result_2_tags[0:10]
+        elif len(result_3_tags) > 10:
+            random.shuffle(result_3_tags)
+            return result_3_tags[0:10]
         else:
-            for r in result:
-                if len(r.tags) == 1:
-                    result_1_tag.append(r)
-                elif len(r.tags) == 2:
-                    result_2_tags.append(r)
-                elif len(r.tags) > 3:
-                    result_3_tags.append(r)
-            if len(result_1_tag) > 10:
-                random.shuffle(result_1_tag)
-                return result_1_tag[0:10]
-            elif len(result_2_tags) > 10:
-                random.shuffle(result_2_tags[0:10])
-                return result_2_tags[0:10]
-            elif len(result_3_tags) > 10:
-                random.shuffle(result_3_tags)
-                return result_3_tags[0:10]
-            else:
-                if len(result_1_tag) > len(result_2_tags) and len(result_1_tag) > len(result_3_tags):
-                    return result_1_tag
-                elif len(result_2_tags) > len(result_1_tag) and len(result_2_tags) > len(result_3_tags):
-                    return result_2_tags
-                elif len(result_3_tags) > len(result_1_tag) and len(result_3_tags) > len(result_2_tags):
-                    return result_3_tags
+            if len(result_1_tag) > len(result_2_tags) and len(result_1_tag) > len(result_3_tags):
+                return result_1_tag
+            elif len(result_2_tags) > len(result_1_tag) and len(result_2_tags) > len(result_3_tags):
+                return result_2_tags
+            elif len(result_3_tags) > len(result_1_tag) and len(result_3_tags) > len(result_2_tags):
+                return result_3_tags
 
 
 def main():
