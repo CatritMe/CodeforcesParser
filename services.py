@@ -1,7 +1,6 @@
 import requests
 
 contest = requests.get('https://codeforces.com/api/problemset.problems?}')
-print(contest)
 
 
 def get_problems():

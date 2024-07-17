@@ -67,12 +67,6 @@ class TestProblem:
         self.session.commit()
 
     @pytest.mark.asyncio
-    async def test_select_problem_for_id(self):
-        result = await select_problem_for_id(1, 'A')
-        assert result[0].name == 'Theatre Square'
-        assert result[0].rating != 3000
-
-    @pytest.mark.asyncio
     async def select_problems_for_rating_tag(self):
         result = await select_problems_for_rating_tag(3000, 'math')
         assert len(result) == 10

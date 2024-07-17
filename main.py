@@ -13,8 +13,6 @@ from tg_bot.utils import cmd_start, get_problem_number, get_method, get_tag, get
 
 load_dotenv()
 
-# Включаем логирование, чтобы не пропустить важные сообщения
-logging.basicConfig(level=logging.INFO)
 # Объект бота
 bot = Bot(token=os.getenv('TOKEN'))
 # Диспетчер
