@@ -1,9 +1,5 @@
-import logging
-import os
-
-from aiogram import Bot, Dispatcher, types
+from aiogram import types
 from aiogram.fsm.context import FSMContext
-from dotenv import load_dotenv
 
 from db.database import select_problem_for_id, select_problems_for_rating_tag
 from tg_bot.keyboard import search_method, tags_builder
@@ -13,15 +9,6 @@ from services import get_contest_id_index, get_message_format
 min_rating = 800
 max_rating = 3500
 step = 100
-
-load_dotenv()
-
-# Включаем логирование, чтобы не пропустить важные сообщения
-logging.basicConfig(level=logging.INFO)
-# Объект бота
-bot = Bot(token=os.getenv('TOKEN'))
-# Диспетчер
-dp = Dispatcher()
 
 
 async def cmd_start(message: types.Message, state: FSMContext):
@@ -47,7 +34,7 @@ async def get_method(message: types.Message, state: FSMContext):
             "Выберите тему:",
             reply_markup=tags_builder.as_markup(resize_keyboard=True),
         )
-        await state.set_state(SearchProblem.get_tag)
+        await state.set_state(SearchProblem.put_tag)
     else:
         await message.reply("Нажми кнопку внизу экрана")
 
@@ -73,7 +60,7 @@ async def get_problem_number(message: types.Message, state: FSMContext):
         await state.set_state(SearchProblem.put_number)
         await message.reply(f"Введи номер задачи")
     elif message.text == 'Поиск по теме и рейтингу':
-        await state.set_state(SearchProblem.get_tag)
+        await state.set_state(SearchProblem.put_tag)
         await message.reply("Выберите тему:", reply_markup=tags_builder.as_markup(resize_keyboard=True),)
     else:
         await message.reply(f'Неправильно введен номер. Первая должна быть цифра')
@@ -118,7 +105,7 @@ async def get_rating(message: types.Message, state: FSMContext):
         await state.set_state(SearchProblem.put_number)
         await message.reply(f"Введи номер задачи")
     elif message.text == 'Поиск по теме и рейтингу':
-        await state.set_state(SearchProblem.get_tag)
+        await state.set_state(SearchProblem.put_tag)
         await message.reply("Выберите тему:", reply_markup=tags_builder.as_markup(resize_keyboard=True),)
     else:
         await message.reply(f"Рейтинг введен некорректно\nНужно ввести число")

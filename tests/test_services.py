@@ -7,6 +7,7 @@ from services import get_problems, get_statistics, get_tags, get_contest_id_inde
 Base.metadata.create_all(engine)
 session = session()
 
+
 def test_get_problems_len():
     problems = get_problems()
     assert len(problems[0]) == 6

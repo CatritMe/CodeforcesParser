@@ -1,9 +1,6 @@
-import asyncio
-
 import pytest
 import pytest_asyncio
 from aiogram import Dispatcher
-from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from tests.mocked_bot import MockedBot
@@ -31,8 +28,3 @@ async def dispatcher():
         yield dp
     finally:
         await dp.emit_shutdown()
-
-
-# @pytest.fixture()
-# def event_loop():
-#     return asyncio.get_event_loop()

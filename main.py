@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 
 from aiogram import Bot, Dispatcher
@@ -21,7 +20,7 @@ dp = Dispatcher()
 dp.message.register(cmd_start, Command(commands='start'))
 dp.message.register(get_method, SearchProblem.search_method)
 dp.message.register(get_problem_number, SearchProblem.put_number)
-dp.message.register(get_tag, SearchProblem.get_tag)
+dp.message.register(get_tag, SearchProblem.put_tag)
 dp.message.register(get_rating, SearchProblem.put_rating)
 
 

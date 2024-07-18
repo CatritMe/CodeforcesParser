@@ -7,7 +7,6 @@ Base = declarative_base(metadata=metadata)
 
 class Tag(Base):
     __tablename__ = "tags"
-    # tag_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     tag_name: Mapped[str] = mapped_column(primary_key=True)
     problems: Mapped[list['Problem']] = relationship(
         back_populates='tags',

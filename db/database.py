@@ -35,8 +35,8 @@ async_db_url = URL.create('postgresql+asyncpg',
                           database=database_name
                           )
 
-engine = create_engine(db_url, echo=True)
-async_engine = create_async_engine(async_db_url, echo=True)
+engine = create_engine(db_url, echo=True, pool_size=10)
+async_engine = create_async_engine(async_db_url, echo=True, pool_size=10)
 
 session = sessionmaker(engine)
 async_session = async_sessionmaker(async_engine)

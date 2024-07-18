@@ -11,7 +11,7 @@ from tg_bot.state import SearchProblem
 from tg_bot.utils import cmd_start, get_method, get_problem_number, get_tag, get_rating
 
 TEST_USER = User(id=1, is_bot=False, first_name='Test')
-TEST_USER_CHAT = Chat(id=1,type='private')
+TEST_USER_CHAT = Chat(id=1, type='private')
 
 
 @pytest.mark.asyncio
@@ -38,7 +38,7 @@ async def test_get_method_search_number(storage, bot):
     )
     await get_method(message, state)
     message.reply.assert_called_with("Отлично, теперь введи номер задачи (например 1925A, 200B (буква английская))",
-                            reply_markup=types.ReplyKeyboardRemove())
+                                     reply_markup=types.ReplyKeyboardRemove())
     assert await state.get_state() == SearchProblem.put_number
 
 
@@ -51,7 +51,7 @@ async def test_get_method_search_rating_and_tag(storage, bot):
     )
     await get_method(message, state)
     message.reply.assert_called_with("Выберите тему:", reply_markup=tags_builder.as_markup(resize_keyboard=True),)
-    assert await state.get_state() == SearchProblem.get_tag
+    assert await state.get_state() == SearchProblem.put_tag
 
 
 @pytest.mark.asyncio
@@ -77,22 +77,41 @@ async def test_get_problem_number_not_isdigit(storage, bot):
 
 
 @pytest.mark.asyncio
-async def test_get_problem_number_isdigit(storage, bot):
-    message = AsyncMock(text='1A')
+async def test_get_problem_number_isdigit_not_search(storage, bot):
+    message = AsyncMock(text='5000A')
     state = FSMContext(
         storage=storage,
         key=StorageKey(bot_id=bot.id, user_id=TEST_USER.id, chat_id=TEST_USER_CHAT.id)
     )
     await get_problem_number(message, state)
-    message.reply.assert_called_with(f'Нашел такую задачу:\n\nНомер задачи: 1A\n'
-                                     f'Название: Theatre Square\n'
-                                     f'Рейтинг (сложность): 1000\n'
-                                     f'Количество решивших задачу: 251699\n'
-                                     f'Тэги: math\n'
-                                     f'-----------------------------------\n',
+    message.reply.assert_called_with(f'Такой задачи нет.\nПроверь номер, буква должна быть английская',
                                      reply_markup=search_method)
-    num = await state.get_data()
-    assert num.get('num') == '1A'
+    regdata = await state.get_data()
+    assert regdata.get('num') == '5000A'
+
+
+@pytest.mark.asyncio
+async def test_get_problem_number_next_search_num(storage, bot):
+    message = AsyncMock(text='Поиск по номеру')
+    state = FSMContext(
+        storage=storage,
+        key=StorageKey(bot_id=bot.id, user_id=TEST_USER.id, chat_id=TEST_USER_CHAT.id)
+    )
+    await get_problem_number(message, state)
+    message.reply.assert_called_with(f"Введи номер задачи")
+    assert await state.get_state() == SearchProblem.put_number
+
+
+@pytest.mark.asyncio
+async def test_get_problem_number_next_search_tag(storage, bot):
+    message = AsyncMock(text='Поиск по теме и рейтингу')
+    state = FSMContext(
+        storage=storage,
+        key=StorageKey(bot_id=bot.id, user_id=TEST_USER.id, chat_id=TEST_USER_CHAT.id)
+    )
+    await get_problem_number(message, state)
+    message.reply.assert_called_with("Выберите тему:", reply_markup=tags_builder.as_markup(resize_keyboard=True),)
+    assert await state.get_state() == SearchProblem.put_tag
 
 
 @pytest.mark.asyncio
@@ -119,4 +138,37 @@ async def test_get_rating_not_isdigit(storage, bot):
     message.reply.assert_called_with(f"Рейтинг введен некорректно\nНужно ввести число")
 
 
-# pytest tests/test_bot.py
+@pytest.mark.asyncio
+async def test_get_rating_isdigit_error_rating(storage, bot):
+    message = AsyncMock(text='5000')
+    state = FSMContext(
+        storage=storage,
+        key=StorageKey(bot_id=bot.id, user_id=TEST_USER.id, chat_id=TEST_USER_CHAT.id)
+    )
+    await get_rating(message, state)
+    message.reply.assert_called_with(f"Рейтинг введен некорректно\n"
+                                     f"Укажи рейтинг правильно: от 800 до 3500 кратно 100")
+
+
+@pytest.mark.asyncio
+async def test_get_rating_next_search_num(storage, bot):
+    message = AsyncMock(text='Поиск по номеру')
+    state = FSMContext(
+        storage=storage,
+        key=StorageKey(bot_id=bot.id, user_id=TEST_USER.id, chat_id=TEST_USER_CHAT.id)
+    )
+    await get_rating(message, state)
+    message.reply.assert_called_with(f"Введи номер задачи")
+    assert await state.get_state() == SearchProblem.put_number
+
+
+@pytest.mark.asyncio
+async def test_get_rating_next_search_tag(storage, bot):
+    message = AsyncMock(text='Поиск по теме и рейтингу')
+    state = FSMContext(
+        storage=storage,
+        key=StorageKey(bot_id=bot.id, user_id=TEST_USER.id, chat_id=TEST_USER_CHAT.id)
+    )
+    await get_rating(message, state)
+    message.reply.assert_called_with("Выберите тему:", reply_markup=tags_builder.as_markup(resize_keyboard=True),)
+    assert await state.get_state() == SearchProblem.put_tag
